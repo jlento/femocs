@@ -46,6 +46,8 @@ public:
      */
     bool import_parcas(const int n_atoms, const double* coordinates, const double* box);
 
+    bool import_lammps(int n_atoms, double* xyz);
+
     /** Import atom coordinates and types and check their rmsd */
     bool import_atoms(const int n_atoms, const double* x, const double* y, const double* z, const int* types);
 

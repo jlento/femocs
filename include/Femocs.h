@@ -18,14 +18,18 @@ namespace femocs {
 /** Main class to hold Femocs object */
 class Femocs {
 public:
-    /**
-     * Femocs constructor reads and stores configuration parameters and initialises other data
-     * @param path_to_conf      path to the file holding the configuration parameters
-     */
+
+    /** Femocs constructors */
+    Femocs();
     Femocs(const string &path_to_conf);
 
     /** Femocs destructor */
     ~Femocs();
+
+    /** Read and store configuration parameters and initialize other data
+     * @param path_to_conf      path to the file holding the configuration parameters
+     */
+    void read_conf(const string &path_to_conf);
 
     /** Function to generate FEM mesh and to solve differential equation(s)
      * by using the parameters specified in configuration script.
@@ -33,6 +37,9 @@ public:
      * @return          0 - function completed normally; 1 - function did not complete normally
      */
     int run(const int timestep=-1, const double time=-1);
+
+    /** Function to import atoms from LAMMPS */
+    int import_atoms(int n_atoms, double* coordinates);
 
     /** Function to import atoms from PARCAS
      * @param n_atoms       number of imported atoms

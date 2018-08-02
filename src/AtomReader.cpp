@@ -434,6 +434,20 @@ bool AtomReader::import_parcas(const int n_atoms, const double* xyz, const doubl
     return calc_rms_distance();
 }
 
+bool AtomReader::import_lammps(int n_atoms, double* xyz) {
+    require(n_atoms > 0, "Zero input atoms detected!");
+
+    reserve(n_atoms);
+    for (int i = 0; i < n_atoms; ++i) {
+        int I = 3*i;
+        append( Atom(i, Point3(xyz[I], xyz[I+1], xyz[I+2]), TYPES.BULK) );
+    }
+
+
+    calc_statistics();
+    return calc_rms_distance();
+}
+
 bool AtomReader::import_file(const string &file_name, const bool add_noise) {
     string file_type = get_file_type(file_name);
 

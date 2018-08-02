@@ -14,7 +14,19 @@
 using namespace std;
 namespace femocs {
 
+Femocs::Femocs() : t0(0), project(NULL)
+{}
+
 Femocs::Femocs(const string &conf_file) : t0(0) {
+    read_conf(conf_file);
+}
+
+Femocs::~Femocs() {
+    if (project) delete project;
+    write_verbose_msg("======= Femocs finished! =======");
+}
+
+void Femocs::read_conf(const string &conf_file) {
     static bool first_call = true;
     bool fail;
 
@@ -47,12 +59,8 @@ Femocs::Femocs(const string &conf_file) : t0(0) {
     }
 }
 
-Femocs::~Femocs() {
-    delete project;
-    write_verbose_msg("======= Femocs finished! =======");
-}
-
 int Femocs::run(const int timestep, const double time) {
+    require(project, "Project not specified!");
     return project->run(timestep, time);
 }
 
@@ -114,6 +122,23 @@ int Femocs::import_atoms(const string& file_name, const int add_noise) {
     return 0;
 }
 
+int Femocs::import_atoms(int n_atoms, double* coordinates) {
+    clear_log();
+
+    start_msg(t0, "=== Importing atoms...");
+    bool system_changed = reader.import_lammps(n_atoms, coordinates);
+    end_msg(t0);
+    write_verbose_msg( "#input atoms: " + d2s(reader.size()) );
+
+    if (system_changed)
+        perform_full_analysis(NULL);
+    else
+        reader.extract_types();
+
+    reader.write("out/atomreader.ckx");
+    return 0;
+}
+
 int Femocs::import_atoms(const int n_atoms, const double* coordinates, const double* box, const int* nborlist) {
     clear_log();
 
@@ -150,6 +175,8 @@ int Femocs::import_atoms(const int n_atoms, const double* x, const double* y, co
 int Femocs::interpolate_surface_elfield(const int n_points, const double* x, const double* y, const double* z,
         double* Ex, double* Ey, double* Ez, double* Enorm, int* flag)
 {
+    require(project, "Project not specified!");
+
     double *fields = new double[3*n_points];
     int retval = project->interpolate(fields, flag, n_points, LABELS.elfield, true, x, y, z);
 
@@ -168,6 +195,8 @@ int Femocs::interpolate_surface_elfield(const int n_points, const double* x, con
 int Femocs::interpolate_elfield(const int n_points, const double* x, const double* y, const double* z,
         double* Ex, double* Ey, double* Ez, double* Enorm, int* flag)
 {
+    require(project, "Project not specified!");
+
     double *fields = new double[3*n_points];
     int retval = project->interpolate(fields, flag, n_points, LABELS.elfield, false, x, y, z);
 
@@ -186,10 +215,12 @@ int Femocs::interpolate_elfield(const int n_points, const double* x, const doubl
 int Femocs::interpolate_phi(const int n_points, const double* x, const double* y, const double* z,
         double* phi, int* flag)
 {
+    require(project, "Project not specified!");
     return project->interpolate(phi, flag, n_points, LABELS.potential, false, x, y, z);
 }
 
 int Femocs::export_data(double* data, const int n_points, const string& data_type) {
+    require(project, "Project not specified!");
     return project->export_data(data, n_points, data_type);
 }
 
@@ -197,6 +228,7 @@ int Femocs::interpolate(double* data, int* flag,
         const int n_points, const string &data_type, const bool near_surface,
         const double* x, const double* y, const double* z)
 {
+    require(project, "Project not specified!");
     return project->interpolate(data, flag, n_points, data_type, near_surface, x, y, z);
 }
 
