@@ -422,8 +422,11 @@ int ProjectRunaway::export_data(double* data, const int n_points, const string &
     if (forces.contains(data_type))
         return forces.export_results(n_points, data_type, data);
 
-    if (data_type == LABELS.pair_potential_sum || data_type == LABELS.parcas_force || data_type == LABELS.charge_force)
-        return forces.export_parcas(n_points, data_type, reader.get_si2parcas_box(), data);
+    if (data_type == LABELS.pair_potential_sum || data_type == LABELS.charge_force)
+        return forces.export_parcas(n_points, data_type, data);
+
+    if (data_type == LABELS.parcas_force)
+        return forces.export_parcas(n_points, reader.get_si2parcas_box(), data);
 
     if (data_type == LABELS.parcas_velocity)
         return temperatures.scale_berendsen(data, n_points, reader.get_parcas2si_box());

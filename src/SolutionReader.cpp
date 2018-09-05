@@ -1292,7 +1292,7 @@ int ForceReader::export_force_and_pairpot(const int n_atoms, double* xnp, double
     return 0;
 }
 
-int ForceReader::export_parcas(const int n_points, const string &data_type, const Vec3& si2parcas,
+int ForceReader::export_parcas(const int n_points, const string &data_type,
         double* data) const
 {
     check_return(size() == 0, "No " + data_type + " to export!");
@@ -1302,19 +1302,6 @@ int ForceReader::export_parcas(const int n_points, const string &data_type, cons
         data[0] = 0;
         for (int i = 0; i < size(); ++i)
             data[0] += get_pairpot(i);
-    }
-
-    // export force perturbation in reduced units (used in Parcas)
-    else if (data_type == LABELS.parcas_force) {
-        for (int i = 0; i < size(); ++i) {
-            int id = get_id(i);
-            if (id < 0 || id >= n_points) continue;
-
-            Vec3 reduced_force = get_force(i) * si2parcas;
-            id *= 3;
-            for (double f : reduced_force)
-                data[id++] += f;
-        }
     }
 
     // export charge and force in SI units ?
@@ -1332,6 +1319,25 @@ int ForceReader::export_parcas(const int n_points, const string &data_type, cons
 
     else
         require(false, "Unimplemented type of export data: " + data_type);
+
+    return 0;
+}
+
+int ForceReader::export_parcas(const int n_points, const Vec3& si2parcas,
+    double* data) const
+{
+    check_return(size() == 0, "No " + LABELS.parcas_force + " to export!");
+
+    // export force perturbation in reduced units (used in Parcas)
+    for (int i = 0; i < size(); ++i) {
+        int id = get_id(i);
+        if (id < 0 || id >= n_points) continue;
+
+        Vec3 reduced_force = get_force(i) * si2parcas;
+        id *= 3;
+        for (double f : reduced_force)
+            data[id++] += f;
+    }
 
     return 0;
 }
