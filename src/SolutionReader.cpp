@@ -460,32 +460,18 @@ void HeatReader::locate_atoms(const Medium &medium) {
     }
 }
 
-int HeatReader::scale_berendsen_short(double* x1, const int n_atoms, const Vec3& parcas2si) {
-    check_return(size() == 0, "No " + LABELS.parcas_velocity + " to export!");
+int HeatReader::export_lammps(double* data, int n_atoms, const string& data_type) {
+  expect(data_type == LABELS.kin_energy || data_type == LABELS.velocity,
+      "Unimplemented export data type: " + data_type);
 
-    vector<Vec3> velocities;
-    calc_SI_velocities(velocities, n_atoms, parcas2si, x1);
+  check_return(size() == 0, "No " + data_type + " to export!");
 
-    // scale velocities from MD temperature to calculated one
-    for (int i = 0; i < size(); ++i) {
-        int id = get_id(i);
-        if (id < 0 || id >= n_atoms) continue;
+  if (data_type == LABELS.kin_energy) {
+      data[0] += kin_energy;
+      return 0;
+  }
 
-        double md_temperature = velocities[id].norm2() * heat_factor;
-        double lambda = calc_lambda(md_temperature, get_temperature(i));
-
-        // export scaled velocity
-        int I = 3 * id;
-        for (int j = 0; j < 3; ++j)
-            x1[I+j] *= lambda;
-
-        // store scaled velocity without affecting current density norm and temperature
-//        interpolation[i].vector = velocities[id] * lambda;
-    }
-
-//    write("out/berendsen.movie");
-
-    return 0;
+  return scale_berendsen(data, n_atoms);
 }
 
 void HeatReader::precalc_berendsen_long() {
@@ -508,17 +494,55 @@ void HeatReader::precalc_berendsen_long() {
     }
 }
 
-int HeatReader::scale_berendsen_long(double* x1, const int n_atoms, const Vec3& parcas2si) {
+int HeatReader::scale_berendsen(double* x1, const int n_atoms, const Vec3& parcas2si) {
     check_return(size() == 0, "No " + LABELS.parcas_velocity + " to export!");
+    vector<Vec3> SI_vels;
+    calc_SI_velocities(SI_vels, n_atoms, parcas2si, x1);
+    return scale_berendsen_long(x1, &SI_vels, n_atoms);
+}
 
+int HeatReader::scale_berendsen(double* vels, const int n_atoms) {
+    check_return(size() == 0, "No " + LABELS.velocity + " to export!");
+    vector<Vec3>* SI_vels = NULL;
+    return scale_berendsen_long(vels, SI_vels, n_atoms);
+}
+
+int HeatReader::scale_berendsen_short(double* MD_vels, vector<Vec3>* SI_vels, const int n_atoms) {
+    kin_energy = 0;
+
+    // scale velocities from MD temperature to calculated one
+    for (int i = 0; i < size(); ++i) {
+        int id = get_id(i);
+        if (id < 0 || id >= n_atoms) continue;
+
+        double md_temperature = get_velocity(MD_vels, SI_vels, i).norm2() * heat_factor;
+        double lambda = calc_lambda(md_temperature, get_temperature(i));
+
+        // store added energy
+        kin_energy += md_temperature * (1.0 - lambda*lambda) * efactor;
+
+        // export scaled velocity
+        int I = 3 * id;
+        for (int j = 0; j < 3; ++j)
+            MD_vels[I+j] *= lambda;
+
+        // store scaled velocity without affecting current density norm and temperature
+//        interpolation[i].vector = get_velocity(MD_vels, SI_vels, i) * lambda;
+    }
+
+    kin_energy /= n_atoms;
+//    write("out/berendsen.movie");
+
+    return 0;
+}
+
+int HeatReader::scale_berendsen_long(double* MD_vels, vector<Vec3>* SI_vels, const int n_atoms) {
     const unsigned int n_tets = tet2atoms.size();
     require(n_tets > 0, "Data is missing for long Berendsen thermostat!");
     require(fem_temp.size() == n_tets, "Mismatch between vector sizes: "
             + d2s(n_tets) + ", " + d2s(fem_temp.size()));
 
-    // convert velocities from Parcas to SI units
-    vector<Vec3> velocities;
-    calc_SI_velocities(velocities, n_atoms, parcas2si, x1);
+    kin_energy = 0;
 
     for (unsigned int tet = 0; tet < n_tets; ++tet) {
         int n_atoms_in_tet = tet2atoms[tet].size();
@@ -529,12 +553,15 @@ int HeatReader::scale_berendsen_long(double* x1, const int n_atoms, const Vec3& 
             for (int atom : tet2atoms[tet]) {
                 int id = get_id(atom);
                 if (id < 0 || id >= n_atoms) continue;
-                md_temp += velocities[id].norm2();
+                md_temp += get_velocity(MD_vels, SI_vels, id).norm2();
             }
             md_temp *= heat_factor / n_atoms_in_tet;
 
             // calculate scaling factor
             double lambda = calc_lambda(md_temp, fem_temp[tet]);
+
+            // store added energy
+            kin_energy += md_temp * (1.0 - lambda*lambda) * efactor * n_atoms_in_tet;
 
             // scale the velocities towards tetrahedron temperature
             for (int atom : tet2atoms[tet]) {
@@ -543,18 +570,25 @@ int HeatReader::scale_berendsen_long(double* x1, const int n_atoms, const Vec3& 
 
                 int I = 3 * id;
                 for (int j = 0; j < 3; ++j)
-                    x1[I+j] *= lambda;
+                    MD_vels[I+j] *= lambda;
 
                 // store scaled velocity and temperature without affecting current density norm
-//                interpolation[atom].vector = velocities[id] * lambda;
+//                interpolation[atom].vector = get_velocity(md_vels, SI_vels, id) * lambda;
 //                interpolation[atom].scalar = fem_temp[tet];
             }
         }
     }
 
+    kin_energy /= n_atoms;
 //    write("out/berendsen.movie");
 
     return 0;
+}
+
+Vec3 HeatReader::get_velocity(double* vels1, vector<Vec3>* vels2, const int i) {
+    if (vels2) return (*vels2)[i];
+    int I = 3*i;
+    return Vec3(vels1[I],vels1[I+1],vels1[I+2]);
 }
 
 double HeatReader::calc_lambda(const double T_start, const double T_end) const {

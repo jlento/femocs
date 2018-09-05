@@ -195,11 +195,14 @@ public:
     /** Compute data that Berendsen thermostat requires for re-using old solution */
     void precalc_berendsen_long();
 
-    /** Apply Berendsen thermostat for individual atoms */
-    int scale_berendsen_short(double* x1, const int n_atoms, const Vec3& parcas2si);
+    /** Export velocities or kinetic energy to LAMMPS */
+    int export_lammps(double* data, const int n_atoms, const string &data_type);
 
-    /** Apply Berendsen thermostat for atoms within a tetrahedron */
-    int scale_berendsen_long(double* x1, const int n_atoms, const Vec3& parcas2si);
+    /** Apply Berendsen thermostat for atoms in LAMMPS */
+    int scale_berendsen(double* vels, const int n_atoms);
+
+    /** Apply Berendsen thermostat for atoms in PARCAS */
+    int scale_berendsen(double* x1, const int n_atoms, const Vec3& parcas2si);
 
     /** Store velocity scaling constants */
     void set_params(const Config& conf) {
@@ -229,9 +232,11 @@ public:
 private:
     static constexpr double kB = 8.6173324e-5; ///< Boltzmann constant [eV/K]
     static constexpr double heat_factor = 1.0 / (2*1.5*kB);  ///< Factor to transfer 2*kinetic energy to temperature
+    static constexpr double efactor = 1.5 * kB;  ///< Factor to transfer temperature to kinetic energy
 
     vector<vector<int>> tet2atoms;
     vector<double> fem_temp;
+    double kin_energy = 0;
 
     struct Data {
         double tau;          ///< Time constant in Berendsen scaling [fs]
@@ -239,11 +244,19 @@ private:
         double time_unit;    ///< the conversion factor of Parcas internal units to fs.
     } data;
 
+    inline Vec3 get_velocity(double* vels1, vector<Vec3>* vels2, const int i);
+
     /** Transfer velocities from Parcas units to fm / fs */
     void calc_SI_velocities(vector<Vec3>& velocities, const int n_atoms, const Vec3& parcas2si, double* x1);
 
     /** Calculate scaling factor for Berendsen thermostat */
     double calc_lambda(const double T_start, const double T_end) const;
+
+    /** Apply Berendsen thermostat for atoms within a tetrahedron */
+    int scale_berendsen_long(double* MD_vels, vector<Vec3>* SI_vels, const int n_atoms);
+
+    /** Apply Berendsen thermostat for individual atoms */
+    int scale_berendsen_short(double* MD_vels, vector<Vec3>* SI_vels, const int n_atoms);
 };
 
 // forward declaration of Pic for declaring it as a friend

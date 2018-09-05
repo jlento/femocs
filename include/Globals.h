@@ -119,6 +119,7 @@ struct Labels {
     const string rho_norm = "rho_norm";
     const string pair_potential = "pair_potential";
     const string pair_potential_sum = "pair_potential_sum";
+    const string kin_energy = "kin_energy";
     const string parcas_force = "parcas_force";
     const string charge_force = "charge_force";
     const string force = "force";
