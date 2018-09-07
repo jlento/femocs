@@ -432,8 +432,8 @@ bool AtomReader::import_parcas(const int n_atoms, const double* xyz, const doubl
     reserve(n_atoms);
     for (int i = 0; i < 3*n_atoms; i+=3) {
         require( xyz[i]==xyz[i] && xyz[i+1]==xyz[i+1] && xyz[i+2]==xyz[i+2],
-            "Invalid coordinates of " + d2s(i/3) + "th point:" + d2s(Point3(xyz[i+1],xyz[i+2],xyz[i+3])) );
-        append( Atom(i/3, Point3(xyz[i+0]*box[0], xyz[i+1]*box[1], xyz[i+2]*box[2]), TYPES.BULK) );
+            "Invalid coordinates of " + d2s(i/3) + "th point:" + d2s(Point3(xyz[i],xyz[i+1],xyz[i+2])) );
+        append( Atom(i/3, Point3(xyz[i]*box[0], xyz[i+1]*box[1], xyz[i+2]*box[2]), TYPES.BULK) );
     }
 
     calc_statistics();
@@ -444,12 +444,13 @@ bool AtomReader::import_lammps(int n_atoms, double* xyz, int* mask, int groupbit
     require(n_atoms > 0, "Zero input atoms detected!");
 
     reserve(n_atoms);
-    for (int i = 0; i < 3*n_atoms; i+=3) {
-//       if (mask[i] & groupbit) {
-          require( xyz[i]==xyz[i] && xyz[i+1]==xyz[i+1] && xyz[i+2]==xyz[i+2],
-              "Invalid coordinates of " + d2s(i/3) + "th point:" + d2s(Point3(xyz[i+1],xyz[i+2],xyz[i+3])) );
-          append( Atom(i/3, Point3(xyz[i], xyz[i+1], xyz[i+2]), TYPES.BULK) );
-//       }
+    for (int i = 0; i < n_atoms; ++i) {
+        if (mask[i] & groupbit) {
+            int I=3*i;
+            require( xyz[I]==xyz[I] && xyz[I+1]==xyz[I+1] && xyz[I+2]==xyz[I+2],
+                "Invalid coordinates of " + d2s(i) + "th point:" + d2s(Point3(xyz[I],xyz[I+1],xyz[I+2])) );
+            append( Atom(i, Point3(xyz[I], xyz[I+1], xyz[I+2]), TYPES.BULK) );
+        }
     }
 
     calc_statistics();
