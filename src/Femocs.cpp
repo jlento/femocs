@@ -122,11 +122,11 @@ int Femocs::import_atoms(const string& file_name, const int add_noise) {
     return 0;
 }
 
-int Femocs::import_atoms(int n_atoms, double* coordinates) {
+int Femocs::import_atoms(int n_atoms, double* coordinates, int* mask, int groupbit) {
     clear_log();
 
     start_msg(t0, "=== Importing atoms...");
-    bool system_changed = reader.import_lammps(n_atoms, coordinates);
+    bool system_changed = reader.import_lammps(n_atoms, coordinates, mask, groupbit);
     end_msg(t0);
     write_verbose_msg( "#input atoms: " + d2s(reader.size()) );
 

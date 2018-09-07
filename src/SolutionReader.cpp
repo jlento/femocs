@@ -460,7 +460,7 @@ void HeatReader::locate_atoms(const Medium &medium) {
     }
 }
 
-int HeatReader::export_lammps(double* data, int n_atoms, const string& data_type) {
+int HeatReader::export_lammps(int n_atoms, const string& data_type, double* data) {
   expect(data_type == LABELS.kin_energy || data_type == LABELS.velocity,
       "Unimplemented export data type: " + data_type);
 
@@ -471,7 +471,7 @@ int HeatReader::export_lammps(double* data, int n_atoms, const string& data_type
       return 0;
   }
 
-  return scale_berendsen(data, n_atoms);
+  return scale_berendsen_long(data, NULL, n_atoms);
 }
 
 void HeatReader::precalc_berendsen_long() {
@@ -494,29 +494,27 @@ void HeatReader::precalc_berendsen_long() {
     }
 }
 
-int HeatReader::scale_berendsen(double* x1, const int n_atoms, const Vec3& parcas2si) {
+int HeatReader::export_parcas(const int n_atoms, const Vec3& parcas2si, double* x1) {
     check_return(size() == 0, "No " + LABELS.parcas_velocity + " to export!");
     vector<Vec3> SI_vels;
     calc_SI_velocities(SI_vels, n_atoms, parcas2si, x1);
     return scale_berendsen_long(x1, &SI_vels, n_atoms);
 }
 
-int HeatReader::scale_berendsen(double* vels, const int n_atoms) {
-    check_return(size() == 0, "No " + LABELS.velocity + " to export!");
-    vector<Vec3>* SI_vels = NULL;
-    return scale_berendsen_long(vels, SI_vels, n_atoms);
-}
-
 int HeatReader::scale_berendsen_short(double* MD_vels, vector<Vec3>* SI_vels, const int n_atoms) {
     kin_energy = 0;
 
     // scale velocities from MD temperature to calculated one
+
     for (int i = 0; i < size(); ++i) {
         int id = get_id(i);
         if (id < 0 || id >= n_atoms) continue;
 
-        double md_temperature = get_velocity(MD_vels, SI_vels, i).norm2() * heat_factor;
+        double md_temperature = get_velocity(MD_vels, SI_vels, id).norm2() * heat_factor;
         double lambda = calc_lambda(md_temperature, get_temperature(i));
+
+        require(lambda > 0 && lambda < 1e10,
+            "Invalid " + d2s(i) + "-th temperature scaling factor: " + d2s(lambda));
 
         // store added energy
         kin_energy += md_temperature * (1.0 - lambda*lambda) * efactor;
@@ -593,6 +591,8 @@ Vec3 HeatReader::get_velocity(double* vels1, vector<Vec3>* vels2, const int i) {
 
 double HeatReader::calc_lambda(const double T_start, const double T_end) const {
     const double scale_factor = data.md_timestep / data.tau;
+    constexpr double eps = 1e-10;
+    if (T_start < eps) return 1.0;
     return sqrt( 1.0 + scale_factor * (T_end / T_start - 1.0) );
 }
 
@@ -1323,10 +1323,13 @@ int ForceReader::export_parcas(const int n_points, const string &data_type,
     return 0;
 }
 
-int ForceReader::export_parcas(const int n_points, const Vec3& si2parcas,
+int ForceReader::export_force(const int n_points, const Vec3& si2parcas,
     double* data) const
 {
-    check_return(size() == 0, "No " + LABELS.parcas_force + " to export!");
+    string label = LABELS.parcas_force;
+    if (si2parcas.norm2() == 1)
+        label = LABELS.force;
+    check_return(size() == 0, "No " + label + " to export!");
 
     // export force perturbation in reduced units (used in Parcas)
     for (int i = 0; i < size(); ++i) {
