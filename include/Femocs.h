@@ -38,8 +38,13 @@ public:
      */
     int run(const int timestep=-1, const double time=-1);
 
-    /** Function to import atoms from LAMMPS */
-    int import_atoms(int n_atoms, double* coordinates);
+    /** Function to import atoms from LAMMPS
+     * @param n_atoms     number of imported atoms
+     * @param coordinates vector of atomistic coordinates; x0=c[0], y0=c[1], z[0]=c[2], x1=c[3], etc
+     * @param mask        integers showing the region ID where they belong
+     * @param groupbit    region ID of atoms to be imported
+     */
+    int import_atoms(int n_atoms, double* coordinates, int* mask, int groupbit);
 
     /** Function to import atoms from PARCAS
      * @param n_atoms       number of imported atoms

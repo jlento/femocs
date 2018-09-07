@@ -196,13 +196,10 @@ public:
     void precalc_berendsen_long();
 
     /** Export velocities or kinetic energy to LAMMPS */
-    int export_lammps(double* data, const int n_atoms, const string &data_type);
-
-    /** Apply Berendsen thermostat for atoms in LAMMPS */
-    int scale_berendsen(double* vels, const int n_atoms);
+    int export_lammps(const int n_atoms, const string &data_type, double* data);
 
     /** Apply Berendsen thermostat for atoms in PARCAS */
-    int scale_berendsen(double* x1, const int n_atoms, const Vec3& parcas2si);
+    int export_parcas(const int n_atoms, const Vec3& parcas2si, double* x1);
 
     /** Store velocity scaling constants */
     void set_params(const Config& conf) {
@@ -426,7 +423,9 @@ public:
      */
     int export_force_and_pairpot(const int n_atoms, double* xnp, double* Epair, double* Vpair) const;
 
-    int export_parcas(const int n_points, const string &data_type, const Vec3& si2parcas, double* data) const;
+    int export_parcas(const int n_points, const string &data_type, double* data) const;
+
+    int export_force(const int n_points, const Vec3& si2parcas, double* data) const;
 
     /** Return the force that is applied to i-th atom */
     Vec3 get_force(const int i) const {

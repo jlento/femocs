@@ -413,8 +413,11 @@ void AtomReader::generate_nanotip(double h, double radius, double latconst) {
 bool AtomReader::import_atoms(const int n_atoms, const double* x, const double* y, const double* z, const int* types) {
     require(n_atoms > 0, "Zero input atoms detected!");
     reserve(n_atoms);
-    for (int i = 0; i < n_atoms; ++i)
+    for (int i = 0; i < n_atoms; ++i) {
+        require( x[i]==x[i] && y[i]==y[i] && z[i]==z[i],
+            "Invalid coordinates: " + d2s(Point3(x[i], y[i], z[i])) );
         append( Atom(i, Point3(x[i], y[i], z[i]), types[i]) );
+    }
 
     calc_statistics();
     return calc_rms_distance();
@@ -427,22 +430,27 @@ bool AtomReader::import_parcas(const int n_atoms, const double* xyz, const doubl
     require(simubox.x > 0 && simubox.y > 0 && simubox.z > 0, "Invalid simubox dimensions: " + d2s(simubox));
 
     reserve(n_atoms);
-    for (int i = 0; i < 3*n_atoms; i+=3)
+    for (int i = 0; i < 3*n_atoms; i+=3) {
+        require( xyz[i]==xyz[i] && xyz[i+1]==xyz[i+1] && xyz[i+2]==xyz[i+2],
+            "Invalid coordinates of " + d2s(i/3) + "th point:" + d2s(Point3(xyz[i+1],xyz[i+2],xyz[i+3])) );
         append( Atom(i/3, Point3(xyz[i+0]*box[0], xyz[i+1]*box[1], xyz[i+2]*box[2]), TYPES.BULK) );
+    }
 
     calc_statistics();
     return calc_rms_distance();
 }
 
-bool AtomReader::import_lammps(int n_atoms, double* xyz) {
+bool AtomReader::import_lammps(int n_atoms, double* xyz, int* mask, int groupbit) {
     require(n_atoms > 0, "Zero input atoms detected!");
 
     reserve(n_atoms);
-    for (int i = 0; i < n_atoms; ++i) {
-        int I = 3*i;
-        append( Atom(i, Point3(xyz[I], xyz[I+1], xyz[I+2]), TYPES.BULK) );
+    for (int i = 0; i < 3*n_atoms; i+=3) {
+//       if (mask[i] & groupbit) {
+          require( xyz[i]==xyz[i] && xyz[i+1]==xyz[i+1] && xyz[i+2]==xyz[i+2],
+              "Invalid coordinates of " + d2s(i/3) + "th point:" + d2s(Point3(xyz[i+1],xyz[i+2],xyz[i+3])) );
+          append( Atom(i/3, Point3(xyz[i], xyz[i+1], xyz[i+2]), TYPES.BULK) );
+//       }
     }
-
 
     calc_statistics();
     return calc_rms_distance();
