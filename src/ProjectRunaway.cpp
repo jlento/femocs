@@ -419,9 +419,6 @@ int ProjectRunaway::export_data(double* data, const int n_points, const string &
     if (temperatures.contains(data_type))
         return temperatures.export_results(n_points, data_type, data);
 
-    if (forces.contains(data_type))
-        return forces.export_results(n_points, data_type, data);
-
     if (data_type == LABELS.parcas_velocity)
         return temperatures.export_parcas(n_points, reader.get_parcas2si_box(), data);
 
@@ -433,6 +430,9 @@ int ProjectRunaway::export_data(double* data, const int n_points, const string &
 
     if (data_type == LABELS.parcas_force)
         return forces.export_force(n_points, reader.get_si2parcas_box(), data);
+
+    if (data_type == LABELS.force)
+        return forces.export_force(n_points, Vec3(1), data);
 
     if (data_type == LABELS.atom_type) {
         require(n_points <= reader.size(), "Invalid data query size: " + d2s(n_points));

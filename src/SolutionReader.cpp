@@ -1326,19 +1326,22 @@ int ForceReader::export_parcas(const int n_points, const string &data_type,
 int ForceReader::export_force(const int n_points, const Vec3& si2parcas,
     double* data) const
 {
-    string label = LABELS.parcas_force;
-    if (si2parcas.norm2() == 1)
-        label = LABELS.force;
-    check_return(size() == 0, "No " + label + " to export!");
+    bool export_parcas = si2parcas.norm2() != 1.0;
+    if (export_parcas) {
+      check_return(size() == 0, "No " + LABELS.parcas_force + " to export!");
+    } else {
+      check_return(size() == 0, "No " + LABELS.force + " to export!");
+    }
 
-    // export force perturbation in reduced units (used in Parcas)
+    // export force perturbation
     for (int i = 0; i < size(); ++i) {
         int id = get_id(i);
         if (id < 0 || id >= n_points) continue;
 
-        Vec3 reduced_force = get_force(i) * si2parcas;
+        Vec3 force = get_force(i);
+        if (export_parcas) force *= si2parcas;
         id *= 3;
-        for (double f : reduced_force)
+        for (double f : force)
             data[id++] += f;
     }
 
