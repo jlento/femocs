@@ -106,8 +106,10 @@ int ProjectRunaway::run(const int timestep, const double time) {
 
     //***** Run FEM solvers *****
 
-    if (run_field_solver())
+    if (run_field_solver()) {
+        GLOBALS.TIME += conf.behaviour.timestep_fs;
         return process_failed("Running field solver in a " + conf.field.solver + " mode failed!");
+    }
 
     if (run_heat_solver())
         return process_failed("Running heat solver in a " + conf.heating.mode + " mode failed!");
