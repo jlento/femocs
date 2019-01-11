@@ -207,13 +207,8 @@ void write_generate(ofstream &file, string params="") {
     file << "elfield = -0.35"          << endl;
     file << "heating_mode = none"      << endl;
     file << "field_solver = poisson"   << endl;
-    file << "pic_mode = transient"     << endl;
 
-    file << "pic_dtmax = 1.0"              << endl;
     file << "femocs_run_time = 4"          << endl;
-    file << "pic_fractional_push = true"   << endl;
-    file << "pic_collide_coulomb_ee = false" << endl;
-    file << "electronWsp = 0.0002"         << endl;
     file << "emitter_blunt = true"         << endl;
     file << "emitter_cold = true"          << endl;
 }
@@ -234,13 +229,9 @@ void write_read_mesh(ofstream &file, string params="") {
     file << "heating_mode = none"      << endl;
     file << "force_mode = none"        << endl;
     file << "field_solver = poisson"   << endl;
-    file << "pic_mode = transient"     << endl;
+    file << "field_mode = transient"     << endl;
 
-    file << "pic_dtmax = 1.0"              << endl;
     file << "femocs_run_time = 4"          << endl;
-    file << "pic_fractional_push = true"   << endl;
-    file << "pic_collide_coulomb_ee = false" << endl;
-    file << "electronWsp = 0.0002"         << endl;
     file << "emitter_blunt = true"         << endl;
     file << "emitter_cold = true"          << endl;
 }
@@ -390,7 +381,7 @@ int main(int argc, char **argv) {
             printf("  tip110      symmetric nanotip with h/r = 5 and <110> orientation\n");
             printf("  tip111      symmetric nanotip with h/r = 5 and <111> orientation\n");
             printf("  rectangle   symmetric nanotip with rectangular substrate\n");
-            printf("  heating_big    PIC, current & heat solver enabled in big symmetric MD nanotip\n");
+            printf("  heating_big    field, current & heat solver enabled in big symmetric MD nanotip\n");
             printf("  heating_small  field, current & heat solver enabled in small MD nanotip\n");
             printf("  stretch     stretch the substrate of small MD nanotip\n");
             printf("  extend      extend the system below the round MD apex\n");
