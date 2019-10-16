@@ -155,6 +155,18 @@ double DealSolver<dim>::max_solution() const {
 }
 
 template<int dim>
+bool DealSolver<dim>::check_limits(const double low_limit, const double high_limit) {
+    stat.sol_min = 1e100;
+    stat.sol_max = -1e100;
+    for (double s : this->solution) {
+        stat.sol_min = min(stat.sol_min, s);
+        stat.sol_max = max(stat.sol_max, s);
+    }
+
+    return stat.sol_min < low_limit || stat.sol_max > high_limit;
+}
+
+template<int dim>
 double DealSolver<dim>::get_cell_vol(const int i) const {
     typename DoFHandler<dim>::active_cell_iterator cell(&triangulation, 0, i, &dof_handler);
     return cell->measure();
@@ -331,7 +343,7 @@ void DealSolver<dim>::calc_vertex2dof() {
 template<int dim>
 void DealSolver<dim>::calc_dof_volumes() {
     QGauss<dim> quadrature_formula(quadrature_degree);
-    FEValues<dim> fe_values(fe, quadrature_formula, update_quadrature_points | update_JxW_values);
+    FEValues<dim> fe_values(fe, quadrature_formula,  update_values | update_quadrature_points | update_JxW_values);
     vector<types::global_dof_index> local_dof_indices(fe.dofs_per_cell);
 
     // reset volumes
@@ -348,7 +360,7 @@ void DealSolver<dim>::calc_dof_volumes() {
         for (unsigned q = 0; q < quadrature_formula.size(); ++q) {
             //iterate through local dofs
             for (unsigned int i = 0; i < fe.dofs_per_cell; ++i)
-                dof_volume[local_dof_indices[i]] +=  fe_values.JxW(q);
+                dof_volume[local_dof_indices[i]] +=  fe_values.JxW(q) * fe_values.shape_value(i, q);
         }
     }
 }
