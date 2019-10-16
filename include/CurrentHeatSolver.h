@@ -72,6 +72,7 @@ public:
     /** @brief assemble the matrix equation for current density calculation.
      * Calculate sparse matrix elements and right-hand-side vector
      * according to the continuity equation weak formulation and to the boundary conditions.
+     * The solution of the system is a "current potential v"  J = grad v"
      */
     void assemble();
 
@@ -102,6 +103,9 @@ public:
      * using Crank-Nicolson or implicit Euler time integration method. */
     void assemble(const double delta_time);
 
+    /** Initialize data vectors and matrices */
+    void setup_system();
+
 private:
     // TODO shouldn't it be temperature dependent?
     static constexpr double cu_rho_cp = 3.4496e-24;  ///< volumetric heat capacity of copper [J/(K*Ang^3)]
@@ -109,6 +113,9 @@ private:
     Vector<double> joule_heat;       ///< integral Joule heat at dofs [Watt]
     Vector<double> total_heat;       ///< integral Joule+Nottingham heat at dofs [Watt]
     const CurrentSolver<dim>* current_solver;
+
+    /**Calculates Joule heat for exporting*/
+    void calc_joule_heat();
 
     typedef typename DealSolver<dim>::LinearSystem LinearSystem;
     typedef typename DealSolver<dim>::ScratchData ScratchData;
@@ -151,7 +158,11 @@ public:
     /** Set the pointers for obtaining external data */
     void set_dependencies(PhysicalQuantities *pq_, const Config::Heating *conf_);
 
+    /** Setup current and heat solvers */
     void setup(const double temperature);
+
+    /** Obtain number of degrees of freedom in solver */
+    int size() const { return heat.size(); }
 
     HeatSolver<dim> heat;        ///< data and operations of heat equation solver
     CurrentSolver<dim> current;  ///< data and operations for finding current density in material
@@ -159,8 +170,6 @@ public:
 private:
     PhysicalQuantities *pq;
     const Config::Heating *conf;
-
-    int size() const { return heat.size(); }
 
     /** Specify allowed types of writable files */
     bool valid_extension(const string &ext) const {

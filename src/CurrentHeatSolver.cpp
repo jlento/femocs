@@ -103,6 +103,16 @@ void HeatSolver<dim>::write_vtk(ofstream& out) const {
 }
 
 template<int dim>
+void HeatSolver<dim>::setup_system() {
+    DealSolver<dim>::setup_system();
+
+    const unsigned int n_dofs = this->size();
+    joule_heat.reinit(n_dofs);
+    total_heat.reinit(n_dofs);
+    this->dof_volume.resize(n_dofs);
+}
+
+template<int dim>
 void HeatSolver<dim>::assemble(const double delta_time) {
     require(current_solver, "NULL current solver can't be used!");
     require(delta_time > 0, "Invalid delta time: " + d2s(delta_time));
@@ -118,25 +128,33 @@ void HeatSolver<dim>::assemble(const double delta_time) {
     const unsigned int n_q_points = quadrature_formula.size();
 
     WorkStream::run(this->dof_handler.begin_active(),this->dof_handler.end(),
-            std_cxx11::bind(&HeatSolver<dim>::assemble_local_cell,
+            std::bind(&HeatSolver<dim>::assemble_local_cell,
                     this,
-                    std_cxx11::_1,
-                    std_cxx11::_2,
-                    std_cxx11::_3),
-            std_cxx11::bind(&HeatSolver<dim>::copy_global_cell,
+                    std::placeholders::_1,
+                    std::placeholders::_2,
+                    std::placeholders::_3),
+            std::bind(&HeatSolver<dim>::copy_global_cell,
                     this,
-                    std_cxx11::_1,
-                    std_cxx11::ref(system)),
+                    std::placeholders::_1,
+                    std::ref(system)),
             ScratchData(this->fe, quadrature_formula, update_values | update_gradients | update_quadrature_points | update_JxW_values),
             CopyData(n_dofs, n_q_points)
     );
 
     if (this->write_time()) {
-        this->joule_heat = this->system_rhs;
+        this->calc_joule_heat();
         this->calc_dof_volumes();
+        //temporarily total_heat keeps the previous T component of the rhs
+        for (int i = 0; i < this->total_heat.size(); ++i)
+            this->total_heat[i] = this->system_rhs[i] - this->joule_heat[i];
     }
+
     this->assemble_rhs(BoundaryID::copper_surface);
-    if (this->write_time()) this->total_heat = this->system_rhs;
+
+    if (this->write_time()){ // save total heat also
+        for (int i = 0; i < this->total_heat.size(); ++i)
+            this->total_heat[i] = this->system_rhs[i] - this->total_heat[i]; //subtract the previous T component
+    }
     this->append_dirichlet(BoundaryID::copper_bottom, this->dirichlet_bc_value);
     this->apply_dirichlet();
 }
@@ -144,6 +162,14 @@ void HeatSolver<dim>::assemble(const double delta_time) {
 template<int dim>
 void HeatSolver<dim>::assemble_crank_nicolson(const double delta_time) {
     require(false, "Implementation of Crank-Nicolson assembly not verified!");
+
+    /* TODO:
+     * change temperature_grad to temperature
+     * add prev_nottingham values
+     * interpolate prev_potential and prev_nottingham for current mesh
+     *   prev_potential could be read from heat_transfer
+     *   for nottingham something else should be done...
+     */
 
     /*
     require(current_solver, "NULL current solver can't be used!");
@@ -254,6 +280,49 @@ void HeatSolver<dim>::assemble_crank_nicolson(const double delta_time) {
 }
 
 template<int dim>
+void HeatSolver<dim>::calc_joule_heat() {
+    require(current_solver, "NULL current solver can't be used!");
+
+    this->joule_heat = 0;
+
+    QGauss<dim> quadrature_formula(this->quadrature_degree);
+
+    // Heating finite element values
+    FEValues<dim> fe_values(this->fe, quadrature_formula,
+            update_values | update_gradients | update_quadrature_points | update_JxW_values);
+
+    const unsigned int dofs_per_cell = this->fe.dofs_per_cell;
+    const unsigned int n_q_points = quadrature_formula.size();
+
+    vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+
+    // The other solution values in the cell quadrature points
+    vector<Tensor<1, dim>> potential_gradients(n_q_points);
+    vector<double> prev_temperatures(n_q_points);
+
+    typename DoFHandler<dim>::active_cell_iterator cell = this->dof_handler.begin_active();
+
+    for (; cell != this->dof_handler.end(); ++cell) {
+        fe_values.reinit(cell);
+        fe_values.get_function_values(this->solution, prev_temperatures);
+        fe_values.get_function_gradients(current_solver->solution, potential_gradients);
+
+        cell->get_dof_indices(local_dof_indices);
+        // Local joule heat vector assembly
+        for (unsigned int q = 0; q < n_q_points; ++q) {
+            double pot_grad_squared = potential_gradients[q].norm_square();
+            double temperature = prev_temperatures[q];
+            double rho = this->pq->evaluate_resistivity(temperature);
+
+            for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+                this->joule_heat(local_dof_indices[i]) += fe_values.JxW(q) *
+                        fe_values.shape_value(i, q) * rho * pot_grad_squared;
+            }
+        }
+    }
+}
+
+template<int dim>
 void HeatSolver<dim>::assemble_euler_implicit(const double delta_time) {
     require(current_solver, "NULL current solver can't be used!");
 
@@ -306,11 +375,11 @@ void HeatSolver<dim>::assemble_euler_implicit(const double delta_time) {
         for (unsigned int q = 0; q < n_q_points; ++q) {
             double pot_grad_squared = potential_gradients[q].norm_square();
             double temperature = prev_temperatures[q];
-            double sigma = this->pq->sigma(temperature);
+            double rho = this->pq->evaluate_resistivity(temperature);
 
             for (unsigned int i = 0; i < dofs_per_cell; ++i) {
                 cell_rhs(i) += fe_values.JxW(q) * fe_values.shape_value(i, q)
-                        * (gamma * temperature + sigma * pot_grad_squared);
+                        * (gamma * temperature + rho * pot_grad_squared);
             }
         }
 
@@ -362,11 +431,11 @@ void HeatSolver<dim>::assemble_local_cell(const typename DoFHandler<dim>::active
     for (unsigned int q = 0; q < n_q_points; ++q) {
         double pot_grad_squared = potential_gradients[q].norm_square();
         double temperature = prev_temperatures[q];
-        double sigma = this->pq->sigma(temperature);
+        double rho = this->pq->evaluate_resistivity(temperature);
 
         for (unsigned int i = 0; i < n_dofs; ++i) {
             copy_data.cell_rhs(i) += scratch_data.fe_values.JxW(q) * scratch_data.fe_values.shape_value(i, q)
-                    * (gamma * temperature + sigma * pot_grad_squared);
+                    * (gamma * temperature + rho * pot_grad_squared);
         }
     }
 
@@ -413,15 +482,15 @@ void CurrentSolver<dim>::assemble() {
     const unsigned int n_q_points = quadrature_formula.size();
 
     WorkStream::run(this->dof_handler.begin_active(),this->dof_handler.end(),
-            std_cxx11::bind(&CurrentSolver<dim>::assemble_local_cell,
+            std::bind(&CurrentSolver<dim>::assemble_local_cell,
                     this,
-                    std_cxx11::_1,
-                    std_cxx11::_2,
-                    std_cxx11::_3),
-            std_cxx11::bind(&CurrentSolver<dim>::copy_global_cell,
+                    std::placeholders::_1,
+                    std::placeholders::_2,
+                    std::placeholders::_3),
+            std::bind(&CurrentSolver<dim>::copy_global_cell,
                     this,
-                    std_cxx11::_1,
-                    std_cxx11::ref(system)),
+                    std::placeholders::_1,
+                    std::ref(system)),
             ScratchData(this->fe, quadrature_formula, update_gradients | update_quadrature_points | update_JxW_values),
             CopyData(n_dofs, n_q_points)
     );
@@ -448,20 +517,14 @@ void CurrentSolver<dim>::assemble_local_cell(const typename DoFHandler<dim>::act
     copy_data.cell_matrix = 0;
     for (unsigned int q = 0; q < n_q_points; ++q) {
         double temperature = prev_temperatures[q];
-        double sigma = this->pq->sigma(temperature);
 
         for (unsigned int i = 0; i < n_dofs; ++i) {
             for (unsigned int j = 0; j < n_dofs; ++j) {
-                copy_data.cell_matrix(i, j) += sigma * scratch_data.fe_values.JxW(q) *
+                copy_data.cell_matrix(i, j) += scratch_data.fe_values.JxW(q) *
                 scratch_data.fe_values.shape_grad(i, q) * scratch_data.fe_values.shape_grad(j, q);
             }
         }
     }
-
-    // Nothing to add to local right-hand-side vector assembly
-//    copy_data.cell_rhs = 0;
-
-    // Obtain dof indices for updating global matrix and right-hand-side vector
     cell->get_dof_indices(copy_data.dof_indices);
 }
 
@@ -506,11 +569,7 @@ void CurrentHeatSolver<dim>::set_dependencies(PhysicalQuantities *pq_, const Con
 template<int dim>
 void CurrentHeatSolver<dim>::export_temp_rho(vector<double> &temp, vector<Tensor<1,dim>> &rho) const {
     heat.export_solution(temp);        // extract temperatures
-    current.export_solution_grad(rho); // extract fields
-
-    // transfer fields to current densities
-    for (int i = 0; i < temp.size(); ++i)
-        rho[i] = pq->sigma(temp[i]) * rho[i];
+    current.export_solution_grad(rho); // extract current densities
 }
 
 template<int dim>
@@ -533,9 +592,10 @@ void CurrentHeatSolver<dim>::write_xyz(ofstream& out) const {
     heat.export_dofs(support_points);
 
     // extract temperatures and current densities
-    vector<double> temp;
+//    vector<double> temp;
     vector<Tensor<1,dim>> rho;
-    export_temp_rho(temp, rho);
+    current.export_solution_grad(rho); // extract current densities
+//    export_temp_rho(temp, rho);
 
     const int n_dofs = support_points.size();
     const int n_verts = heat.tria->n_used_vertices();
@@ -550,7 +610,7 @@ void CurrentHeatSolver<dim>::write_xyz(ofstream& out) const {
         out << dof2vertex[i] << " " << Point3(support_points[i]) << " " << Vec3(rho[dof2vertex[i]])
                 << " " << heat.total_heat(i) << " " << heat.total_heat(i) - heat.joule_heat(i)
                 << " " << heat.joule_heat(i) << " " << heat.dof_volume[i] << " " << heat.solution(i)
-                << " " << current.solution(i) << " " << rho[dof2vertex[i]].norm() << "\n";
+                << " " << current.solution(i) / pq->sigma(heat.solution(i)) << " " << rho[dof2vertex[i]].norm() << "\n";
     }
 }
 
