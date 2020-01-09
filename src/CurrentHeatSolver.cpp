@@ -610,7 +610,7 @@ void CurrentHeatSolver<dim>::write_xyz(ofstream& out) const {
         out << dof2vertex[i] << " " << Point3(support_points[i]) << " " << Vec3(rho[dof2vertex[i]])
                 << " " << heat.total_heat(i) << " " << heat.total_heat(i) - heat.joule_heat(i)
                 << " " << heat.joule_heat(i) << " " << heat.dof_volume[i] << " " << heat.solution(i)
-                << " " << current.solution(i) / pq->sigma(heat.solution(i)) << " " << rho[dof2vertex[i]].norm() << "\n";
+                << " " << current.solution(i) / pq->sigma(heat.solution(i)) << " " << 1. / pq->sigma(heat.solution(i)) << "\n";
     }
 }
 
