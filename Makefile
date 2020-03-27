@@ -3,7 +3,7 @@
 #                             Mihkel Veske 2016
 #
 #############################################################################
-# Before running make taito, run
+# Before running make puhti, run
 #   module load gcc/5.3.0 intelmpi/5.1.3
 # Before running make alcyone, run
 #   module load PrgEnv-gnu gcc/5.1.0
@@ -54,9 +54,9 @@ install-ubuntu:
 	@chmod +x ./build/install.sh
 	@./build/install.sh ubuntu
 
-install-taito:
+install-puhti:
 	@chmod +x ./build/install.sh
-	@./build/install.sh taito
+	@./build/install.sh puhti
 
 install-alcyone:
 	@chmod +x ./build/install.sh
@@ -92,7 +92,7 @@ help:
 	@echo ''
 	@echo 'make install-'
 	@echo '       ubuntu   build in Ubuntu desktop Femocs mandatory dependencies'
-	@echo '       taito    build in CSC Taito cluster all the external libraries that Femocs needs'
+	@echo '       puhti    build in CSC Puhti cluster all the external libraries that Femocs needs'
 	@echo '       alcyone  build in Alcyone cluster all the external libraries that Femocs needs'
 	@echo '       cgal     build CGAL and enable its usage in the code'
 	@echo '       no-cgal  disable CGAL usage in the code'

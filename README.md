@@ -34,7 +34,7 @@ Before building FEMOCS as a library or executable, FEMOCS dependencies must be i
 This can be done with
 
     $ make install-ubuntu   # Ubuntu desktop            
-    $ make install-taito    # CSC Taito
+    $ make install-puhti    # CSC Puhti
     $ make install-alcyone  # Alcyone
     
 The files that were built during installation can be removed with

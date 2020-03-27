@@ -14,7 +14,7 @@ cgal/lib/x86_64-linux-gnu/libCGAL.a: cgal/CGAL-${CGAL_VER}.zip
 	cd cgal/CGAL-*/.build; make -j${NPROCS}; make install
 	cd cgal; rm -rf CGAL-${CGAL_VER}
 
-taito: cgal/lib64/libCGAL.a
+puhti: cgal/lib64/libCGAL.a
 cgal/lib64/libCGAL.a: cgal/lib/x86_64-linux-gnu/libCGAL.a
 
 cgal/CGAL-${CGAL_VER}.zip:
